@@ -1,11 +1,9 @@
-#include"EV3Servo-lib-UW.c"
-
-const tSensors SOUND_SENSOR = S3;
+const tSensors SOUND_SENSOR = S1;
 const tSensors COLOUR_SENSOR = S2;
 const tMotor UNROLL_MOTOR = motorA;
 const tMotor TRACK_MOTOR = motorD;
-const tMotor PISTON_MOTOR = 1;
-const tSensors MOTOR_CONTROLLOR_SENSOR = S1;
+const tMotor FOLDER_MOTOR = motorB;
+const tMotor PISTON_MOTOR = motorC;
 
 const int SOUND_THRESHOLD = 150;
 const int MAX_LAYERS = 7;
@@ -13,16 +11,17 @@ const int MAX_WAIT_TIME = 5000; //ms
 const float ROLL_RADIUS = 5; //cm
 const int TEAR_DISTANCE = -30; //cm
 const int REV_UNROLL_POWER = 100;
-const int FWD_UNROLL_POWER = 50;
+const int FWD_UNROLL_POWER = 75;
 const float FOLDARM_LIMIT = 135; //degrees
+const int TRACK_POWER = 100;
 int layersUsed = 0;
 
 bool paperExists()
 {
-  while (SensorValue[COLOUR_SENSOR] != (int)colorWhite)
+  while (SensorValue[COLOUR_SENSOR] == (int)colorRed)
   {
-    displayTextLine(0, "Press a button to acknowledge the roll is empty,")
-    displayTextLine(1, "or place a new roll in the designated place.")
+    displayTextLine(0, "Press a button to acknowledge the roll is empty,");
+    displayTextLine(1, "or place a new roll in the designated place.");
     playSound(soundDownwardTones);
     time1[T1] = 0;
     while (time1[T1] < MAX_WAIT_TIME)
@@ -38,11 +37,15 @@ bool paperExists()
 
 void pistonUp(bool direction)
 {
-  int position = 90; //modify
+  int position = 900; //modify
   if (!direction)
     position = -position;
 
-  setServoPosition(MOTOR_CONTROLLOR_SENSOR, PISTON_MOTOR, position);
+  motor[PISTON_MOTOR] = 100;
+  while (nMotorEncoder[PISTON_MOTOR] < position)
+  {}
+
+  motor[PISTON_MOTOR] = 0;
 }
 
 void foldArm135CW(bool rotateCW)
@@ -51,13 +54,15 @@ void foldArm135CW(bool rotateCW)
 
   if (!rotateCW)
     power = -power;
-  nMotorEncoder[FOLDER_MOTOR] = 0; 
+  nMotorEncoder[FOLDER_MOTOR] = 0;
   motor[FOLDER_MOTOR] = power;
 
   if (rotateCW)
-    while (nMotorEncoder[FOLDER_MOTOR] < FOLDARM_LIMIT);
+    while (nMotorEncoder[FOLDER_MOTOR] < FOLDARM_LIMIT)
+    {}
   else
-    while (nMotorEncoder[FOLDER_MOTOR] > -FOLDARM_LIMIT);
+    while (nMotorEncoder[FOLDER_MOTOR] > -FOLDARM_LIMIT)
+    {}
 
   motor[FOLDER_MOTOR] = 0;
 }
@@ -72,9 +77,10 @@ void unrollPaper(int distanceCM, int power)
     power = -power;
 
   nMotorEncoder[UNROLL_MOTOR] = 0;
-  float encoderStop = distanceCM * 360 / (2*PI*ROLL_RADIUS);
+  int encoderStop = distanceCM * 360 / (2*PI*ROLL_RADIUS);
   motor[UNROLL_MOTOR] = power;
-  while (nMotorEncoder[UNROLL_MOTOR] < encoderStop);
+  while (nMotorEncoder[UNROLL_MOTOR] < encoderStop)
+  {}
 
   motor[UNROLL_MOTOR] = 0;
 }
@@ -86,19 +92,19 @@ void outputPaper()
   pistonUp(true);
 }
 
-bool failsafe(); //ANDREW
-void fold(int layers0) //ANDREW DO DEBUGGING HERE
+bool failsafe(){return true;} //ANDREW
+void fold(int layers) //ANDREW DO DEBUGGING HERE
 {
-  unrollPaper("SOMEDIST", FWD_UNROLL_POWER); //just past the fold arm
-  for(int layer = layers0; layer > 0 && SensorValue[COLOUR_SENSOR] == colorWhite; layer--)
+  unrollPaper(7, FWD_UNROLL_POWER); //just past the fold arm
+  for(; layers > 0 && SensorValue[COLOUR_SENSOR] != (int)colorRed; layers--)
   {
     foldArm135CW(false);
-    unrollPaper("ODIST", FWD_UNROLL_POWER); // 1.5layers ish
+    unrollPaper(70, FWD_UNROLL_POWER); // 1.5layers ish
 
     foldArm135CW(true);
-    unrollPaper("OTHDIST", FWD_UNROLL_POWER); //return to having fold which will start just past the SOMEDIST
+    unrollPaper(40, FWD_UNROLL_POWER); //return to having fold which will start just past the SOMEDIST
 
-    layersUsed++;
+    layersUsed += 2;
     displayTextLine(0, "%d layers used on this roll.", layersUsed);
   }
 }
@@ -106,21 +112,23 @@ void fold(int layers0) //ANDREW DO DEBUGGING HERE
 int getLayers()
 {
   displayTextLine(0, "Clap for layers");
-  while (SensorValue[SOUND_SENSOR] < SOUND_THRESHOLD);
+  while (SensorValue[SOUND_SENSOR] < SOUND_THRESHOLD)
+  {}
   int layers = 1;
   displayTextLine(0, "%d layers selected. Clap for more.", layers);
-  
+
   time1[T1] = 0;
   do
   {
-    while (SensorValue[SOUND_SENSOR] < SOUND_THRESHOLD  && time1[T1] <= MAX_WAIT_TIME);
-    
+    while (SensorValue[SOUND_SENSOR] < SOUND_THRESHOLD  && time1[T1] <= MAX_WAIT_TIME)
+    {}
+
     if (time1[T1] > MAX_WAIT_TIME)
       return layers;
     layers++;
-    
+
     displayTextLine(0, "%d layers selected. Clap for more.", layers);
-    time1[T1] = 0; 
+    time1[T1] = 0;
   } while (layers <= MAX_LAYERS);
   return layers;
 }
@@ -128,15 +136,15 @@ int getLayers()
 task main()
 {
   SensorType[SOUND_SENSOR] = sensorSoundDB;
-  SensorType[COLOUR_SENSOR] = sensorEV3Color;
+  SensorType[COLOUR_SENSOR] = sensorEV3_Color;
   wait1Msec(50);
-  SensorMode[COLOUR_SENSOR] = sensorEV3Color_Color;
-  wait1Msec(50); 
+  SensorMode[COLOUR_SENSOR] = modeEV3Color_Color;
+  wait1Msec(50);
 
   while (paperExists())
   {
-    fold(getLayers()); //ANDREW MAKE THIS
-    if (SensorValue[COLOUR_SENSOR] == colorWhite)
+    fold(getLayers());
+    if (SensorValue[COLOUR_SENSOR] == (int)colorWhite)
       outputPaper();
     else
     {
@@ -145,7 +153,7 @@ task main()
       motor[UNROLL_MOTOR] = 0;
     }
 
-    motor[TRACK_MOTOR] = 100;
+    motor[TRACK_MOTOR] = TRACK_POWER;
     wait1Msec(3000);
     motor[TRACK_MOTOR] = 0;
   }
