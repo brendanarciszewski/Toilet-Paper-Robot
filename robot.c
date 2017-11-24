@@ -36,7 +36,7 @@ bool isPaper()
 bool paperExists()
 {
   eraseDisplay();
-  while (!isPaper()) //NEEDS TESTING
+  while (!isPaper())
   {
     displayTextLine(0, "Press any button");
     displayTextLine(1, "to acknowledge the");
@@ -125,9 +125,6 @@ void ripPaper()
   foldArmCW(false);
 }
 
-//bool failsafe(){return true;} //ANDREW
-
-
 void fold(int layers)
 {
   eraseDisplay();
@@ -173,8 +170,6 @@ int getLayers()
     if (time1[T1] > MAX_WAIT_TIME)
       return layers;
     layers += 2;
-
-
   }
   return layers;
 }
@@ -192,7 +187,7 @@ task main()
     fold(getLayers());
     if (SensorValue[COLOUR_SENSOR] != (int)colorRed)
       ripPaper();
-    else //NEEDS TESTING
+    else 
     {
       eraseDisplay();
       displayBigTextLine(0, "Out of Paper!");
