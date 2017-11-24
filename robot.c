@@ -1,9 +1,9 @@
 const tSensors SOUND_SENSOR = S1;
 const tSensors COLOUR_SENSOR = S2;
-const tMotor UNROLL_MOTOR = motorA;
-const tMotor TRACK_MOTOR = motorD;
-const tMotor FOLDER_MOTOR = motorB;
-const tMotor PISTON_MOTOR = motorC;
+const tMotor UNROLL_MOTOR = motorB;
+const tMotor TRACK_MOTOR = motorA;
+const tMotor FOLDER_MOTOR = motorC;
+const tMotor PISTON_MOTOR = motorD;
 
 const int SOUND_THRESHOLD = 40;
 const int MAX_LAYERS = 16;
@@ -12,7 +12,7 @@ const int DRIVEN_WHEEL_RADIUS = 2; //cm
 const int TEAR_DISTANCE = -30; //cm
 const int REV_UNROLL_POWER = 100;
 const int FWD_UNROLL_POWER = 50;
-const int FOLDARM_LIMIT = 140; //degrees
+const int FOLDARM_LIMIT = 115; //degrees
 const int TRACK_POWER = 100;
 int layersUsed = 0;
 
@@ -43,6 +43,7 @@ void pistonUp(bool direction)
 
   motor[PISTON_MOTOR] = 100;
   nMotorEncoder[PISTON_MOTOR] = 0;
+  //if while
   while (nMotorEncoder[PISTON_MOTOR] < position)
   {}
 
@@ -74,14 +75,18 @@ void unrollPaper(int distanceCM, int power)
     power = 100;
   else if (power < 0)
     power = 0;
-  if (distanceCM < 0)
+  if (distanceCM > 0)
     power = -power;
 
   nMotorEncoder[UNROLL_MOTOR] = 0;
   int encoderStop = distanceCM * 360 / (2*PI*DRIVEN_WHEEL_RADIUS);          ////ROLL_RADIUS);
   motor[UNROLL_MOTOR] = power;
-  while (nMotorEncoder[UNROLL_MOTOR] < encoderStop)
-  {}
+
+  if (distanceCM > 0)
+    while (nMotorEncoder[UNROLL_MOTOR] > -encoderStop)
+    {}
+  else
+    while (nMotorEncoder[UNROLL_MOTOR] < encoderStop)
 
   motor[UNROLL_MOTOR] = 0;
 }
@@ -98,33 +103,36 @@ bool failsafe(){return true;} //ANDREW
 
 void fold(int layers) //ANDREW DO DEBUGGING HERE
 {
-  unrollPaper(7, FWD_UNROLL_POWER); //just past the fold arm
+  unrollPaper(1, FWD_UNROLL_POWER); //just past the fold arm
   for(; layers >= 0 && SensorValue[COLOUR_SENSOR] != (int)colorRed; layers--)
   {
     foldArm135CW(false);
-    unrollPaper(70, FWD_UNROLL_POWER); // 1.5layers ish
+    unrollPaper(3, FWD_UNROLL_POWER); // 1.5layers ish
 
     foldArm135CW(true);
-    unrollPaper(40, FWD_UNROLL_POWER); //return to having fold which will start just past the SOMEDIST
+    unrollPaper(3, FWD_UNROLL_POWER); //return to having fold which will start just past the SOMEDIST
 
     layersUsed += 2;
-    displayTextLine(0, "%d layers used on this roll.", layersUsed);
+    displayTextLine(0, "%d layers used.", layersUsed);
+    while(true)
+      playSound(soundBeepBeep);
   }
 }
 
 int getLayers()
 {
-  displayTextLine(0, "Clap to get 6 layers.");
-  displayTextLine(1, "MINIMUM: 6, MAXIMUM: 16.");
+  displayBigTextLine(0, "Clap for 6 layers.");
+  displayBigTextLine(4, "MIN: 6, MAX: 16.");
   while (SensorValue[SOUND_SENSOR] < SOUND_THRESHOLD)
   {}
   int layers = 6;
-  displayTextLine(0, "%d layers selected. Clap for more.", layers);
-  displayTextLine(1, "");
 
-  time1[T1] = 0;
   do
   {
+    displayBigTextLine(0, "%d layers.", layers);
+    displayBigTextLine(2, "Clap for 2 more.");
+    wait1Msec(500);
+    time1[T1] = 0;
     while (SensorValue[SOUND_SENSOR] < SOUND_THRESHOLD && time1[T1] <= MAX_WAIT_TIME)
     {}
 
@@ -132,8 +140,7 @@ int getLayers()
       return layers;
     layers += 2;
 
-    displayTextLine(0, "%d layers. Clap for 2 more.", layers);
-    time1[T1] = 0;
+
   } while (layers < MAX_LAYERS);
   return layers;
 }
@@ -141,6 +148,7 @@ int getLayers()
 task main()
 {
   SensorType[SOUND_SENSOR] = sensorSoundDBA;
+  wait1Msec(50);
   SensorType[COLOUR_SENSOR] = sensorEV3_Color;
   wait1Msec(50);
   SensorMode[COLOUR_SENSOR] = modeEV3Color_Color;
