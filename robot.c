@@ -2,25 +2,28 @@ const tSensors SOUND_SENSOR = S1;
 const int SOUND_THRESHOLD = 50;
 const int MAX_WAIT_TIME = 2500; //ms
 
-const tMotor UNROLL_MOTOR = motorB;
-const int REV_UNROLL_POWER = 100;
-const int FWD_UNROLL_POWER = 50;
+const tMotor ROLLER_MOTOR = motorB;
 const int DRIVEN_WHEEL_RADIUS = 2; //cm
-const int TEAR_DISTANCE = 15; //cm //NEEDS TEST
+const int UNROLL_POWER = 50;
+const int TWO_LAYER_DIST = 15; //cm
+const int TEAR_POWER = 35;
+const int TEAR_DIST = 5; //cm
 
 const tMotor TRACK_MOTOR = motorA;
-const int TRACK_POWER = -100;
-const int TRACK_TIME = 1500; //ms
+const int TRACK_POWER = -75;
+const int TRACK_TIME = 1250; //ms
 
 const tMotor FOLDER_MOTOR = motorC;
-const int FOLD_TIME = 400; //ms
+const int FOLD_TIME = 300; //ms
 
-const int MAX_LAYERS = 8; //PASS
-const int MIN_LAYERS = 4; //PASS
+const int MAX_LAYERS = 8;
+const int MIN_LAYERS = 4;
 
 const tMotor PISTON_MOTOR = motorD;
 
 const tSensors COLOUR_SENSOR = S2;
+
+const int TIME_BETWEEN_REQUESTS = 10000; //ms
 
 int layersUsed = 0;
 
@@ -32,9 +35,10 @@ bool isPaper()
 
 bool paperExists()
 {
-  while (!isPaper())
+  eraseDisplay();
+  while (!isPaper()) //NEEDS TESTING
   {
-    displayTextLine(0, "Press a button to acknowledge the roll is empty,");
+    displayTextLine(0, "Press any button to acknowledge the roll is empty,");
     displayTextLine(1, "or place a new roll in the designated place.");
     playSound(soundDownwardTones);
     time1[T1] = 0;
@@ -44,14 +48,12 @@ bool paperExists()
         return false;
     }
   }
-  displayTextLine(0, "");
-  displayTextLine(1, "");
   return true;
 }
 
 void pistonUp(bool direction)
 {
-  int position = 10.5*360, motorPower = 100;
+  int position = 7.5*360, motorPower = 100;
   if (!direction)
     motorPower = -motorPower;
 
@@ -94,26 +96,27 @@ void unrollPaper(int distanceCM, int motorPower, bool unroll)
   if (unroll)
     motorPower = -motorPower;
 
-  nMotorEncoder[UNROLL_MOTOR] = 0;
+  nMotorEncoder[ROLLER_MOTOR] = 0;
   int encoderStop = distanceCM * 360 / (2*PI*DRIVEN_WHEEL_RADIUS);
-  motor[UNROLL_MOTOR] = motorPower;
+  motor[ROLLER_MOTOR] = motorPower;
 
   if (unroll)
-    while (nMotorEncoder[UNROLL_MOTOR] > -encoderStop)
+    while (nMotorEncoder[ROLLER_MOTOR] > -encoderStop)
     {}
   else
-    while (nMotorEncoder[UNROLL_MOTOR] < encoderStop)
+    while (nMotorEncoder[ROLLER_MOTOR] < encoderStop)
     {}
 
-  motor[UNROLL_MOTOR] = 0;
+  motor[ROLLER_MOTOR] = 0;
 }
 
 void ripPaper()
 {
+  eraseDisplay();
   displayBigTextLine(0, "Ripping...");
   foldArmCW(true);
   pistonUp(false);
-  unrollPaper(TEAR_DISTANCE, REV_UNROLL_POWER, false);
+  unrollPaper(TEAR_DIST, TEAR_POWER, false);
   pistonUp(true);
   foldArmCW(false);
 }
@@ -123,34 +126,38 @@ void ripPaper()
 
 void fold(int layers)
 {
-  unrollPaper(5, FWD_UNROLL_POWER, true); //just past the fold arm
+  eraseDisplay();
+  motor[TRACK_MOTOR] = TRACK_POWER/4;
+  unrollPaper(4, UNROLL_POWER, true);
+  motor[TRACK_MOTOR] = 0;
   wait1Msec(300);
 
   for(; layers > 0 && isPaper(); layers -= 2)
   {
     displayBigTextLine(0, "%d layers remain", layers);
+    wait1Msec(300);
 
-    unrollPaper(15, FWD_UNROLL_POWER, true); //2 layers
+    unrollPaper(TWO_LAYER_DIST, UNROLL_POWER, true);
     wait1Msec(300);
     foldArmCW(true);
     wait1Msec(300);
     foldArmCW(false);
-    wait1Msec(600);
+    wait1Msec(300);
 
     layersUsed += 2;
   }
-  eraseDisplay();
 }
 
-int getLayers() //TESTED & PASSED
+int getLayers()
 {
+  eraseDisplay();
   displayBigTextLine(0, "Clap for %d layers", MIN_LAYERS);
   displayBigTextLine(4, "MIN: %d, MAX: %d", MIN_LAYERS, MAX_LAYERS);
   while (SensorValue[SOUND_SENSOR] < SOUND_THRESHOLD)
   {}
   int layers = MIN_LAYERS;
 
-  do
+  while (layers < MAX_LAYERS)
   {
     displayBigTextLine(0, "%d layers.", layers);
     displayBigTextLine(2, "Clap for 2 more.");
@@ -164,8 +171,7 @@ int getLayers() //TESTED & PASSED
     layers += 2;
 
 
-  } while (layers < MAX_LAYERS);
-  eraseDisplay();
+  }
   return layers;
 }
 
@@ -182,12 +188,11 @@ task main()
     fold(getLayers());
     if (SensorValue[COLOUR_SENSOR] != (int)colorRed)
       ripPaper();
-    else
+    else //NEEDS TESTING
     {
+      eraseDisplay();
       displayBigTextLine(0, "Out of Paper!");
-      motor[UNROLL_MOTOR] = FWD_UNROLL_POWER;
-      wait1Msec(1000);
-      motor[UNROLL_MOTOR] = 0;
+      unrollPaper(TWO_LAYER_DIST, UNROLL_POWER, true);
     }
 
     motor[TRACK_MOTOR] = TRACK_POWER;
@@ -197,6 +202,6 @@ task main()
     displayBigTextLine(0, "Grab Paper.");
     wait1Msec(2000);
     displayBigTextLine(0, "%d layers used.", layersUsed);
-    wait1Msec(8000);
+    wait1Msec(TIME_BETWEEN_REQUESTS - 2000);
   }
 }
