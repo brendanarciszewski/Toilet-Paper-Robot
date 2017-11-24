@@ -38,8 +38,12 @@ bool paperExists()
   eraseDisplay();
   while (!isPaper()) //NEEDS TESTING
   {
-    displayTextLine(0, "Press any button to acknowledge the roll is empty,");
-    displayTextLine(1, "or place a new roll in the designated place.");
+    displayTextLine(0, "Press any button");
+    displayTextLine(1, "to acknowledge the");
+    displayTextLine(2, "roll is empty,");
+    displayTextLine(3, "or place a new");
+    displayTextLine(4, "roll in the");
+    displayTextLine(5, "designated place.");
     playSound(soundDownwardTones);
     time1[T1] = 0;
     while (time1[T1] < MAX_WAIT_TIME)
