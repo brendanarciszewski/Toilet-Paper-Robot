@@ -11,7 +11,7 @@ const int MAX_WAIT_TIME = 5000; //ms
 const int DRIVEN_WHEEL_RADIUS = 2; //cm
 const int TEAR_DISTANCE = -30; //cm
 const int REV_UNROLL_POWER = 100;
-const int FWD_UNROLL_POWER = 75;
+const int FWD_UNROLL_POWER = 50;
 const int FOLDARM_LIMIT = 140; //degrees
 const int TRACK_POWER = 100;
 int layersUsed = 0;
@@ -42,6 +42,7 @@ void pistonUp(bool direction)
     position = -position;
 
   motor[PISTON_MOTOR] = 100;
+  nMotorEncoder[PISTON_MOTOR] = 0;
   while (nMotorEncoder[PISTON_MOTOR] < position)
   {}
 
@@ -113,11 +114,11 @@ void fold(int layers) //ANDREW DO DEBUGGING HERE
 
 int getLayers()
 {
-  displayTextLine(0, "Clap for the amount of layers you want.");
+  displayTextLine(0, "Clap to get 6 layers.");
   displayTextLine(1, "MINIMUM: 6, MAXIMUM: 16.");
   while (SensorValue[SOUND_SENSOR] < SOUND_THRESHOLD)
   {}
-  int layers = 1;
+  int layers = 6;
   displayTextLine(0, "%d layers selected. Clap for more.", layers);
   displayTextLine(1, "");
 
@@ -129,17 +130,17 @@ int getLayers()
 
     if (time1[T1] > MAX_WAIT_TIME)
       return layers;
-    layers++;
+    layers += 2;
 
-    displayTextLine(0, "%d layers selected. Clap for more.", layers);
+    displayTextLine(0, "%d layers. Clap for 2 more.", layers);
     time1[T1] = 0;
-  } while (layers <= MAX_LAYERS);
+  } while (layers < MAX_LAYERS);
   return layers;
 }
 
 task main()
 {
-  SensorType[SOUND_SENSOR] = sensorSoundDB;
+  SensorType[SOUND_SENSOR] = sensorSoundDBA;
   SensorType[COLOUR_SENSOR] = sensorEV3_Color;
   wait1Msec(50);
   SensorMode[COLOUR_SENSOR] = modeEV3Color_Color;
