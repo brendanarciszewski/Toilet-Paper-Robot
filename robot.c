@@ -5,15 +5,15 @@ const tMotor TRACK_MOTOR = motorA;
 const tMotor FOLDER_MOTOR = motorC;
 const tMotor PISTON_MOTOR = motorD;
 
-const int SOUND_THRESHOLD = 40;
-const int MAX_LAYERS = 16;
-const int MAX_WAIT_TIME = 5000; //ms
+const int SOUND_THRESHOLD = 45; //TESTED & PASSED
+const int MAX_LAYERS = 8;
+const int MAX_WAIT_TIME = 2500; //ms
 const int DRIVEN_WHEEL_RADIUS = 2; //cm
 const int TEAR_DISTANCE = -30; //cm
 const int REV_UNROLL_POWER = 100;
 const int FWD_UNROLL_POWER = 50;
 const int FOLDARM_LIMIT = 115; //degrees
-const int TRACK_POWER = 100;
+const int TRACK_POWER = -100;
 int layersUsed = 0;
 
 bool paperExists()
@@ -37,15 +37,18 @@ bool paperExists()
 
 void pistonUp(bool direction)
 {
-  int position = 900; //modify==============================================================
+  int position = 10.5*360, motorPower = 100; //modify==============================================================
   if (!direction)
-    position = -position;
+    motorPower = -motorPower;
 
-  motor[PISTON_MOTOR] = 100;
+  motor[PISTON_MOTOR] = motorPower;
   nMotorEncoder[PISTON_MOTOR] = 0;
-  //if while
-  while (nMotorEncoder[PISTON_MOTOR] < position)
-  {}
+  if (!direction)
+    while (nMotorEncoder[PISTON_MOTOR] > -position)
+    {}
+  else
+    while (nMotorEncoder[PISTON_MOTOR] < position)
+    {}
 
   motor[PISTON_MOTOR] = 0;
 }
@@ -61,41 +64,74 @@ void foldArm135CW(bool rotateCW)
 
   if (rotateCW)
     while (nMotorEncoder[FOLDER_MOTOR] < FOLDARM_LIMIT)
-  {}
+    {}
   else
     while (nMotorEncoder[FOLDER_MOTOR] > -FOLDARM_LIMIT)
-  {}
+    {}
 
   motor[FOLDER_MOTOR] = 0;
 }
 
-void unrollPaper(int distanceCM, int power)
+void unrollPaper(int distanceCM, int motorPower, bool unroll)
 {
-  if (power > 100)
-    power = 100;
-  else if (power < 0)
-    power = 0;
-  if (distanceCM > 0)
-    power = -power;
+  if (motorPower > 100)
+    motorPower = 100;
+  else if (motorPower < 0)
+    motorPower = -motorPower;
+  if (distanceCM < 0)
+    distanceCM = -distanceCM;
+
+  if (unroll)
+    motorPower = -motorPower;
+  else
+    distanceCM = -distanceCM;
 
   nMotorEncoder[UNROLL_MOTOR] = 0;
-  int encoderStop = distanceCM * 360 / (2*PI*DRIVEN_WHEEL_RADIUS);          ////ROLL_RADIUS);
-  motor[UNROLL_MOTOR] = power;
+  int encoderStop = distanceCM * 360 / (2*PI*DRIVEN_WHEEL_RADIUS);
+  motor[UNROLL_MOTOR] = motorPower;
+
+  if (unroll)
+    while (nMotorEncoder[UNROLL_MOTOR] > -encoderStop)
+    {}
+  else
+    while (nMotorEncoder[UNROLL_MOTOR] < encoderStop)
+    {}
+
+  motor[UNROLL_MOTOR] = 0;
+}
+
+/*void unrollPaper(int distanceCM, int motorPower)
+{
+  if (motorPower > 100)
+    motorPower = 100;
+  else if (motorPower < 0)
+    motorPower = 0;
+  if (distanceCM > 0)
+    motorPower = -motorPower;
+  else
+    distanceCM = -distanceCM;
+
+  nMotorEncoder[UNROLL_MOTOR] = 0;
+  int encoderStop = distanceCM * 360 / (2*PI*DRIVEN_WHEEL_RADIUS);
+  motor[UNROLL_MOTOR] = motorPower;
 
   if (distanceCM > 0)
     while (nMotorEncoder[UNROLL_MOTOR] > -encoderStop)
     {}
   else
     while (nMotorEncoder[UNROLL_MOTOR] < encoderStop)
+    {}
 
   motor[UNROLL_MOTOR] = 0;
-}
+}*/
 
 void outputPaper()
 {
+  rotate135CW(true);
   pistonUp(false);
   unrollPaper(TEAR_DISTANCE, REV_UNROLL_POWER);
   pistonUp(true);
+  rotate135CW(false);
 }
 
 bool failsafe(){return true;} //ANDREW
@@ -103,29 +139,37 @@ bool failsafe(){return true;} //ANDREW
 
 void fold(int layers) //ANDREW DO DEBUGGING HERE
 {
-  unrollPaper(1, FWD_UNROLL_POWER); //just past the fold arm
-  for(; layers >= 0 && SensorValue[COLOUR_SENSOR] != (int)colorRed; layers--)
-  {
-    foldArm135CW(false);
-    unrollPaper(3, FWD_UNROLL_POWER); // 1.5layers ish
+  unrollPaper(5, FWD_UNROLL_POWER); //just past the fold arm
+  wait1Msec(300);
 
+  for(; layers > 0 && SensorValue[COLOUR_SENSOR] != (int)colorRed; layers -= 2)
+  {
+
+    unrollPaper(15, FWD_UNROLL_POWER); // 1.5layers ish
+    wait1Msec(300);
     foldArm135CW(true);
-    unrollPaper(3, FWD_UNROLL_POWER); //return to having fold which will start just past the SOMEDIST
+    wait1Msec(300);
+
+    //unrollPaper(5, FWD_UNROLL_POWER); //return to having fold which will start just past the SOMEDIST
+    //wait1Msec(300);
+    foldArm135CW(false);
+    wait1Msec(300);
 
     layersUsed += 2;
-    displayTextLine(0, "%d layers used.", layersUsed);
-    while(true)
-      playSound(soundBeepBeep);
+    displayBigTextLine(0, "%d layers remain", layers);
+    wait1Msec(300);
+    //while(true) playSound(soundBlip);
   }
+  eraseDisplay();
 }
 
-int getLayers()
+int getLayers() //TESTED & PASSED
 {
-  displayBigTextLine(0, "Clap for 6 layers.");
-  displayBigTextLine(4, "MIN: 6, MAX: 16.");
+  displayBigTextLine(0, "Clap for 4 layers.");
+  displayBigTextLine(4, "MIN: 4, MAX: %d", MAX_LAYERS);
   while (SensorValue[SOUND_SENSOR] < SOUND_THRESHOLD)
   {}
-  int layers = 6;
+  int layers = 4;
 
   do
   {
@@ -142,6 +186,7 @@ int getLayers()
 
 
   } while (layers < MAX_LAYERS);
+  eraseDisplay();
   return layers;
 }
 
@@ -157,6 +202,7 @@ task main()
   while (paperExists())
   {
     fold(getLayers());
+    displayBigTextLine(0, "%d layers used.", layersUsed);
     if (SensorValue[COLOUR_SENSOR] != (int)colorRed)
       outputPaper();
     else
