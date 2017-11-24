@@ -26,7 +26,7 @@ const tSensors COLOUR_SENSOR = S2;
 const int TIME_BETWEEN_REQUESTS = 10000; //ms
 
 bool isPaper(); //Brendan
-bool paperExists(); //Garret
+bool nonEmptyRollExists(); //Garret
 void pistonUp(bool direction); //Craig
 void foldArmCW(bool rotateCW); //Craig
 void unrollPaper(int distanceCM, int motorPower, bool unroll); //Craig
@@ -44,7 +44,7 @@ task main() //Brendan
   SensorMode[COLOUR_SENSOR] = modeEV3Color_Color;
   wait1Msec(50);
 
-  while (paperExists())
+  while (nonEmptyRollExists())
   {
     fold(getLayers());
     if (isPaper())
@@ -127,7 +127,7 @@ int getLayers()
   return layers;
 }
 
-bool paperExists()
+bool nonEmptyRollExists()
 {
   eraseDisplay();
   while (!isPaper())
