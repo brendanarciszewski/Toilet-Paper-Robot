@@ -135,7 +135,7 @@ void fold(int layers)
     foldArmCW(true);
     wait1Msec(300);
     foldArmCW(false);
-    wait1Msec(300);
+    wait1Msec(600);
 
     layersUsed += 2;
   }
