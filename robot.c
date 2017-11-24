@@ -25,12 +25,106 @@ const tSensors COLOUR_SENSOR = S2;
 
 const int TIME_BETWEEN_REQUESTS = 10000; //ms
 
+bool isPaper(); //Brendan
+bool paperExists(); //Garret
+void pistonUp(bool direction); //Craig
+void foldArmCW(bool rotateCW); //Craig
+void unrollPaper(int distanceCM, int motorPower, bool unroll); //Craig
+int getLayers(); //Brendan
+void fold(int layers); //Andrew
+void ripPaper(); //Garret
+
 int layersUsed = 0;
 
-
-bool isPaper()
+task main() //Brendan
 {
-  return SensorValue[COLOUR_SENSOR] != (int)colorRed;
+  SensorType[SOUND_SENSOR] = sensorSoundDBA;
+  SensorType[COLOUR_SENSOR] = sensorEV3_Color;
+  wait1Msec(50);
+  SensorMode[COLOUR_SENSOR] = modeEV3Color_Color;
+  wait1Msec(50);
+
+  while (paperExists())
+  {
+    fold(getLayers());
+    if (isPaper())
+      ripPaper();
+    else 
+    {
+      eraseDisplay();
+      displayBigTextLine(0, "Out of Paper!");
+      unrollPaper(TWO_LAYER_DIST, UNROLL_POWER, true);
+    }
+
+    motor[TRACK_MOTOR] = TRACK_POWER;
+    wait1Msec(TRACK_TIME);
+    motor[TRACK_MOTOR] = 0;
+
+    displayBigTextLine(0, "Grab Paper.");
+    wait1Msec(2000);
+    displayBigTextLine(0, "%d layers used.", layersUsed);
+    wait1Msec(TIME_BETWEEN_REQUESTS - 2000);
+  }
+}
+
+void fold(int layers)
+{
+  eraseDisplay();
+  motor[TRACK_MOTOR] = TRACK_POWER/4;
+  unrollPaper(4, UNROLL_POWER, true);
+  motor[TRACK_MOTOR] = 0;
+  wait1Msec(300);
+
+  for(; layers > 0 && isPaper(); layers -= 2)
+  {
+    displayBigTextLine(0, "%d layers remain", layers);
+    wait1Msec(300);
+
+    unrollPaper(TWO_LAYER_DIST, UNROLL_POWER, true);
+    wait1Msec(300);
+    foldArmCW(true);
+    wait1Msec(300);
+    foldArmCW(false);
+    wait1Msec(300);
+
+    layersUsed += 2;
+  }
+}
+
+void ripPaper()
+{
+  eraseDisplay();
+  displayBigTextLine(0, "Ripping...");
+  foldArmCW(true);
+  pistonUp(false);
+  unrollPaper(TEAR_DIST, TEAR_POWER, false);
+  pistonUp(true);
+  foldArmCW(false);
+}
+
+int getLayers()
+{
+  eraseDisplay();
+  displayBigTextLine(0, "Clap for %d layers", MIN_LAYERS);
+  displayBigTextLine(4, "MIN: %d, MAX: %d", MIN_LAYERS, MAX_LAYERS);
+  while (SensorValue[SOUND_SENSOR] < SOUND_THRESHOLD)
+  {}
+  int layers = MIN_LAYERS;
+
+  while (layers < MAX_LAYERS)
+  {
+    displayBigTextLine(0, "%d layers.", layers);
+    displayBigTextLine(2, "Clap for 2 more.");
+    wait1Msec(500);
+    time1[T1] = 0;
+    while (SensorValue[SOUND_SENSOR] < SOUND_THRESHOLD && time1[T1] <= MAX_WAIT_TIME)
+    {}
+
+    if (time1[T1] > MAX_WAIT_TIME)
+      return layers;
+    layers += 2;
+  }
+  return layers;
 }
 
 bool paperExists()
@@ -53,6 +147,32 @@ bool paperExists()
     }
   }
   return true;
+}
+
+void unrollPaper(int distanceCM, int motorPower, bool unroll)
+{
+  if (motorPower > 100)
+    motorPower = 100;
+  else if (motorPower < 0)
+    motorPower = -motorPower;
+  if (distanceCM < 0)
+    distanceCM = -distanceCM;
+
+  if (unroll)
+    motorPower = -motorPower;
+
+  nMotorEncoder[ROLLER_MOTOR] = 0;
+  int encoderStop = distanceCM * 360 / (2*PI*DRIVEN_WHEEL_RADIUS);
+  motor[ROLLER_MOTOR] = motorPower;
+
+  if (unroll)
+    while (nMotorEncoder[ROLLER_MOTOR] > -encoderStop)
+    {}
+  else
+    while (nMotorEncoder[ROLLER_MOTOR] < encoderStop)
+    {}
+
+  motor[ROLLER_MOTOR] = 0;
 }
 
 void pistonUp(bool direction)
@@ -88,119 +208,7 @@ void foldArmCW(bool rotateCW)
   motor[FOLDER_MOTOR] = 0;
 }
 
-void unrollPaper(int distanceCM, int motorPower, bool unroll)
+bool isPaper()
 {
-  if (motorPower > 100)
-    motorPower = 100;
-  else if (motorPower < 0)
-    motorPower = -motorPower;
-  if (distanceCM < 0)
-    distanceCM = -distanceCM;
-
-  if (unroll)
-    motorPower = -motorPower;
-
-  nMotorEncoder[ROLLER_MOTOR] = 0;
-  int encoderStop = distanceCM * 360 / (2*PI*DRIVEN_WHEEL_RADIUS);
-  motor[ROLLER_MOTOR] = motorPower;
-
-  if (unroll)
-    while (nMotorEncoder[ROLLER_MOTOR] > -encoderStop)
-    {}
-  else
-    while (nMotorEncoder[ROLLER_MOTOR] < encoderStop)
-    {}
-
-  motor[ROLLER_MOTOR] = 0;
-}
-
-void ripPaper()
-{
-  eraseDisplay();
-  displayBigTextLine(0, "Ripping...");
-  foldArmCW(true);
-  pistonUp(false);
-  unrollPaper(TEAR_DIST, TEAR_POWER, false);
-  pistonUp(true);
-  foldArmCW(false);
-}
-
-void fold(int layers)
-{
-  eraseDisplay();
-  motor[TRACK_MOTOR] = TRACK_POWER/4;
-  unrollPaper(4, UNROLL_POWER, true);
-  motor[TRACK_MOTOR] = 0;
-  wait1Msec(300);
-
-  for(; layers > 0 && isPaper(); layers -= 2)
-  {
-    displayBigTextLine(0, "%d layers remain", layers);
-    wait1Msec(300);
-
-    unrollPaper(TWO_LAYER_DIST, UNROLL_POWER, true);
-    wait1Msec(300);
-    foldArmCW(true);
-    wait1Msec(300);
-    foldArmCW(false);
-    wait1Msec(300);
-
-    layersUsed += 2;
-  }
-}
-
-int getLayers()
-{
-  eraseDisplay();
-  displayBigTextLine(0, "Clap for %d layers", MIN_LAYERS);
-  displayBigTextLine(4, "MIN: %d, MAX: %d", MIN_LAYERS, MAX_LAYERS);
-  while (SensorValue[SOUND_SENSOR] < SOUND_THRESHOLD)
-  {}
-  int layers = MIN_LAYERS;
-
-  while (layers < MAX_LAYERS)
-  {
-    displayBigTextLine(0, "%d layers.", layers);
-    displayBigTextLine(2, "Clap for 2 more.");
-    wait1Msec(500);
-    time1[T1] = 0;
-    while (SensorValue[SOUND_SENSOR] < SOUND_THRESHOLD && time1[T1] <= MAX_WAIT_TIME)
-    {}
-
-    if (time1[T1] > MAX_WAIT_TIME)
-      return layers;
-    layers += 2;
-  }
-  return layers;
-}
-
-task main()
-{
-  SensorType[SOUND_SENSOR] = sensorSoundDBA;
-  SensorType[COLOUR_SENSOR] = sensorEV3_Color;
-  wait1Msec(50);
-  SensorMode[COLOUR_SENSOR] = modeEV3Color_Color;
-  wait1Msec(50);
-
-  while (paperExists())
-  {
-    fold(getLayers());
-    if (SensorValue[COLOUR_SENSOR] != (int)colorRed)
-      ripPaper();
-    else 
-    {
-      eraseDisplay();
-      displayBigTextLine(0, "Out of Paper!");
-      unrollPaper(TWO_LAYER_DIST, UNROLL_POWER, true);
-    }
-
-    motor[TRACK_MOTOR] = TRACK_POWER;
-    wait1Msec(TRACK_TIME);
-    motor[TRACK_MOTOR] = 0;
-
-    displayBigTextLine(0, "Grab Paper.");
-    wait1Msec(2000);
-    displayBigTextLine(0, "%d layers used.", layersUsed);
-    wait1Msec(TIME_BETWEEN_REQUESTS - 2000);
-  }
+  return SensorValue[COLOUR_SENSOR] != (int)colorRed;
 }
