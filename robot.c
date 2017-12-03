@@ -117,7 +117,8 @@ int getLayers()
     displayBigTextLine(2, "Clap for 2 more.");
     wait1Msec(500);
     time1[T1] = 0;
-    while (SensorValue[SOUND_SENSOR] < SOUND_THRESHOLD && time1[T1] <= MAX_WAIT_TIME)
+    while (SensorValue[SOUND_SENSOR] < SOUND_THRESHOLD && time1[T1] <= 
+                                                                  MAX_WAIT_TIME)
     {}
 
     if (time1[T1] > MAX_WAIT_TIME)
@@ -130,14 +131,15 @@ int getLayers()
 bool nonEmptyRollExists()
 {
   eraseDisplay();
+  displayTextLine(0, "Press any button");
+  displayTextLine(1, "to acknowledge the");
+  displayTextLine(2, "roll is empty,");
+  displayTextLine(3, "or place a new");
+  displayTextLine(4, "roll in the");
+  displayTextLine(5, "designated place.");
+
   while (!isPaper())
   {
-    displayTextLine(0, "Press any button");
-    displayTextLine(1, "to acknowledge the");
-    displayTextLine(2, "roll is empty,");
-    displayTextLine(3, "or place a new");
-    displayTextLine(4, "roll in the");
-    displayTextLine(5, "designated place.");
     playSound(soundDownwardTones);
     time1[T1] = 0;
     while (time1[T1] < MAX_WAIT_TIME)
